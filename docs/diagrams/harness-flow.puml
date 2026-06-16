@@ -1,0 +1,88 @@
+@startuml harness-flow
+title brew-mgt — Harness Operating Flow (per session)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam ArrowColor #444444
+skinparam defaultFontName Helvetica
+skinparam activity {
+  BackgroundColor #F4F6F8
+  BorderColor #5B6B7B
+  DiamondBackgroundColor #FFF3E0
+  DiamondBorderColor #D95C41
+}
+
+|#E8F0FE|Session Start|
+start
+:Run ./init.sh
+(build CLI, init/refresh harness.db,
+feature sync, baseline verify, enable hooks);
+if (Baseline verification passes?) then (no)
+  #FFE0E0:STOP — fix the baseline first;
+  stop
+else (yes)
+endif
+:Read claude-progress.md + session-handoff.md;
+:Read feature_list.json
+-> pick highest-priority NON-passing feature;
+
+|#FFF8E1|Task Loop|
+:Classify request with docs/FEATURE_INTAKE.md
+(lane = tiny | normal | high-risk);
+:harness-cli intake --type --summary --lane;
+:Mark feature in_progress in feature_list.json
+-> harness-cli feature sync;
+:Check proof status
+-> harness-cli query matrix;
+
+if (Lane = high-risk?) then (yes)
+  :Write decision record
+docs/decisions/NNNN.md
++ harness-cli decision add;
+  if (Human confirms?) then (no)
+    #FFE0E0:Pause — await human decision;
+    stop
+  else (yes)
+  endif
+else (no)
+endif
+
+:Do the work IN-LANE
+(follow sops/layered-domain-architecture.md);
+
+:Produce a PRODUCT delta and/or HARNESS delta
+- PRODUCT: app code, tests, API, product docs
+- HARNESS: docs, templates, backlog, decisions;
+
+:Run validation / proofs for the feature;
+if (Proofs pass with evidence?) then (yes)
+  :Record evidence in feature_list.json
+mark passing -> harness-cli feature sync;
+else (no)
+  :Keep status in_progress / blocked
+record the blocker;
+endif
+
+:Ask: did product truth, validation,
+architecture, failure patterns, or
+next-agent instructions change?;
+:Encode new knowledge
+(sops/encode-unseen-knowledge.md);
+:harness-cli trace --summary --outcome --story;
+if (Harness friction found?) then (yes)
+  :harness-cli backlog add  (or fix it directly);
+else (no)
+endif
+
+|#E8F5E9|Session End — leave a clean state|
+:Run clean-state-checklist.md;
+:Update claude-progress.md + session-handoff.md;
+:Ensure feature_list.json is honest
+-> harness-cli feature sync;
+:Self-review with evaluator-rubric.md;
+:Update quality-document.md (codebase health);
+:git commit
+(pre-commit hook: validate feature_list + feature sync);
+stop
+
+@enduml

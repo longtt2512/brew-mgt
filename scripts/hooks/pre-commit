@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# brew-mgt pre-commit hook.
+# 1. Validates feature_list.json (valid JSON, at most one feature in_progress,
+#    every `passing` feature has evidence).
+# 2. Mirrors feature_list.json into harness.db via `harness-cli feature sync`.
+#
+# Installed by scripts/install-hooks.sh (sets core.hooksPath=scripts/hooks).
+# This hook never edits tracked files: harness.db is git-ignored, so there is
+# nothing to re-stage. It only blocks a commit when the feature list is invalid.
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+FEATURES="feature_list.json"
+CLI="scripts/bin/harness-cli"
+
+# Nothing to do if the feature list is absent.
+[ -f "$FEATURES" ] || exit 0
+
+# ---- 1. validate feature_list.json -----------------------------------------
+validate() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$FEATURES" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    doc = json.load(open(path))
+except Exception as e:
+    print(f"pre-commit: {path} is not valid JSON: {e}", file=sys.stderr)
+    sys.exit(1)
+feats = doc.get("features", [])
+in_progress = [f.get("id", "?") for f in feats if f.get("status") == "in_progress"]
+if len(in_progress) > 1:
+    print(f"pre-commit: more than one feature in_progress: {in_progress}", file=sys.stderr)
+    print("Only one feature may be in_progress at a time.", file=sys.stderr)
+    sys.exit(1)
+missing = [f.get("id", "?") for f in feats
+           if f.get("status") == "passing" and not f.get("evidence")]
+if missing:
+    print(f"pre-commit: features marked passing without evidence: {missing}", file=sys.stderr)
+    sys.exit(1)
+PY
+  elif command -v jq >/dev/null 2>&1; then
+    jq empty "$FEATURES" || { echo "pre-commit: $FEATURES is not valid JSON" >&2; exit 1; }
+    n=$(jq '[.features[] | select(.status=="in_progress")] | length' "$FEATURES")
+    if [ "$n" -gt 1 ]; then
+      echo "pre-commit: more than one feature in_progress ($n). Only one allowed." >&2
+      exit 1
+    fi
+  else
+    echo "pre-commit: neither python3 nor jq found; skipping feature_list validation." >&2
+  fi
+}
+validate
+
+# ---- 2. sync into the durable layer ----------------------------------------
+if [ -x "$CLI" ] && [ -f harness.db ]; then
+  echo "pre-commit: syncing feature_list.json -> harness.db"
+  "$CLI" feature sync >/dev/null || echo "pre-commit: feature sync failed (non-fatal)" >&2
+else
+  echo "pre-commit: harness-cli or harness.db not present; skipping feature sync." >&2
+fi
+
+exit 0

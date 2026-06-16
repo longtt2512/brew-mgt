@@ -60,4 +60,12 @@ if [ "${RUN_START_COMMAND:-0}" = "1" ]; then
   eval "$START_CMD"
 fi
 
+# 5. Enable versioned git hooks (idempotent).
+if [ -d .git ] || git rev-parse --git-dir >/dev/null 2>&1; then
+  if [ "$(git config --get core.hooksPath 2>/dev/null)" != "scripts/hooks" ]; then
+    echo "==> Enabling git hooks (scripts/hooks)"
+    scripts/install-hooks.sh >/dev/null || echo "    (hook install skipped)"
+  fi
+fi
+
 echo "==> init complete. Read claude-progress.md and feature_list.json before starting."

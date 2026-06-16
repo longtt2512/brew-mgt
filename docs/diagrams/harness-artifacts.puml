@@ -1,0 +1,85 @@
+@startuml harness-artifacts
+title brew-mgt — Harness System of Record (artifact map)
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Helvetica
+skinparam rectangle {
+  BackgroundColor #F4F6F8
+  BorderColor #5B6B7B
+}
+skinparam database {
+  BackgroundColor #FFF3E0
+  BorderColor #D95C41
+}
+
+actor "Human\n(steers)" as Human
+actor "Coding Agent\n(Claude Code / Codex)" as Agent
+
+package "Entrypoints" {
+  rectangle "AGENTS.md\n(universal shim)" as AGENTS
+  rectangle "CLAUDE.md\n(-> AGENTS.md)" as CLAUDE
+}
+
+package "Source of truth (git-tracked)" {
+  rectangle "feature_list.json\n(what to build + status)" as FL
+  rectangle "docs/product/**\n(product contract)" as PROD
+  rectangle "docs/stories/**" as STORIES
+  rectangle "docs/decisions/**\n(durable decisions)" as DEC
+  rectangle "docs/exec-plans/**\n(active / completed / tech-debt)" as PLANS
+  rectangle "Policy docs\nHARNESS / FEATURE_INTAKE /\nARCHITECTURE / SECURITY /\nRELIABILITY / DESIGN / PRODUCT_SENSE" as POLICY
+  rectangle "sops/**\n(step-by-step recipes)" as SOPS
+}
+
+package "Continuity (git-tracked)" {
+  rectangle "claude-progress.md" as PROG
+  rectangle "session-handoff.md" as HAND
+  rectangle "clean-state-checklist.md" as CLEAN
+  rectangle "evaluator-rubric.md" as EVAL
+  rectangle "quality-document.md" as QUAL
+}
+
+package "Durable layer (per-clone, git-ignored)" {
+  rectangle "scripts/bin/harness-cli\n(Rust: clap + rusqlite)" as CLI
+  database "harness.db\n(intake, stories, decisions,\ntraces, backlog)" as DB
+}
+
+rectangle "init.sh\n(session start)" as INIT
+rectangle "scripts/hooks/pre-commit\n(validate + sync on commit)" as HOOK
+
+Human --> AGENTS
+Human --> CLAUDE
+Agent --> AGENTS
+CLAUDE --> AGENTS
+
+AGENTS --> POLICY
+AGENTS --> INIT
+INIT --> CLI : build + init
+INIT --> FL : feature sync
+
+FL --> CLI : "feature sync\n(JSON -> DB)"
+CLI --> DB : writes (mirror + ops history)
+Agent --> CLI : intake / story / trace /\ndecision / backlog / query
+
+FL ..> STORIES : decomposed into
+PROD ..> FL : drives
+DEC ..> PLANS
+PLANS ..> STORIES
+SOPS ..> Agent : guide
+
+Agent --> PROG
+Agent --> HAND
+Agent --> EVAL
+Agent --> QUAL
+CLEAN ..> Agent : end-of-session gate
+HOOK --> FL : validates
+HOOK --> CLI : feature sync
+
+note right of DB
+  Snapshot of feature_list.json
+  (stories) PLUS operational
+  records the JSON never holds.
+  Edit the JSON, never the DB.
+end note
+
+@enduml
