@@ -1,0 +1,26 @@
+# Harness durable layer (per-clone, never committed)
+harness.db
+harness.db-journal
+harness.db-wal
+harness.db-shm
+
+# Built Harness CLI binary
+/scripts/bin/
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Java / Spring Boot (when scaffolded)
+build/
+out/
+.gradle/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store

@@ -1,0 +1,10 @@
+# Normalize line endings
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.rs text eol=lf
+*.md text eol=lf
+*.sql text eol=lf
+
+# Treat the built binary as binary if it ever gets tracked accidentally
+scripts/bin/harness-cli binary

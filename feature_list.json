@@ -1,0 +1,89 @@
+{
+  "project": "brew-mgt",
+  "description": "Feature tracker — source of truth for what to build next. Mirror into harness.db with `scripts/bin/harness-cli feature sync`. Only one feature may be in_progress at a time.",
+  "status_values": ["not_started", "in_progress", "blocked", "passing"],
+  "features": [
+    {
+      "id": "US-001",
+      "priority": 1,
+      "area": "inventory",
+      "lane": "normal",
+      "title": "List installed formulae & casks",
+      "user_visible_behavior": "GET /api/packages returns installed formulae and casks with name, version, type, and outdated flag; supports ?type=formula|cask.",
+      "status": "not_started",
+      "verification": [
+        "Unit: service returns mapped packages from a mocked BrewClient.",
+        "Integration: adapter parses fixture `brew info --json=v2` output.",
+        "E2E: MockMvc GET /api/packages returns 200 with formulae and casks.",
+        "Platform (manual, controlled machine): real `brew list` smoke."
+      ],
+      "evidence": "",
+      "notes": "Depends on the BrewClient port from decision 0001."
+    },
+    {
+      "id": "US-002",
+      "priority": 2,
+      "area": "inventory",
+      "lane": "normal",
+      "title": "Detect outdated packages",
+      "user_visible_behavior": "GET /api/packages/outdated returns name, current, latest, type, pinned; empty array when nothing is outdated.",
+      "status": "not_started",
+      "verification": [
+        "Unit: service maps `brew outdated --json=v2`.",
+        "Integration: adapter against fixture output.",
+        "E2E: MockMvc GET /api/packages/outdated."
+      ],
+      "evidence": "",
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "priority": 3,
+      "area": "services",
+      "lane": "normal",
+      "title": "List running brew services",
+      "user_visible_behavior": "GET /api/services returns each service with name and status (started|stopped|error|unknown).",
+      "status": "not_started",
+      "verification": [
+        "Unit: service maps `brew services list --json`.",
+        "Integration: adapter against fixture output.",
+        "E2E: MockMvc GET /api/services."
+      ],
+      "evidence": "",
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "priority": 4,
+      "area": "inventory",
+      "lane": "normal",
+      "title": "Show package info / dependencies",
+      "user_visible_behavior": "GET /api/packages/{name} returns info and dependency list; 404 when not installed.",
+      "status": "not_started",
+      "verification": [
+        "Unit: service maps `brew info --json=v2 <name>`.",
+        "Integration: adapter against fixture output including casks.",
+        "E2E: MockMvc GET /api/packages/{name} happy + 404."
+      ],
+      "evidence": "",
+      "notes": "Cask vs formula JSON shapes differ — known friction."
+    },
+    {
+      "id": "US-005",
+      "priority": 5,
+      "area": "lifecycle",
+      "lane": "high-risk",
+      "title": "Upgrade a selected package (destructive)",
+      "user_visible_behavior": "POST /api/packages/{name}/upgrade upgrades one named package; supports dryRun; never bulk-upgrades implicitly; 404 if not installed, 409 if not outdated.",
+      "status": "not_started",
+      "verification": [
+        "Unit: service incl. dryRun with mocked BrewClient.",
+        "Integration: adapter command construction (no real exec).",
+        "E2E: MockMvc happy/404/409 paths.",
+        "Platform (manual, controlled machine ONLY): real `brew upgrade` smoke."
+      ],
+      "evidence": "",
+      "notes": "High-risk: needs a dedicated decision record (dry-run/confirmation/timeouts) before implementation."
+    }
+  ]
+}
